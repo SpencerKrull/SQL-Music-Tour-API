@@ -1,12 +1,11 @@
 // DEPENDENCIES
-const event = require('express').Router()
+const events = require('express').Router()
 const db = require('../models')
-const { Event } = db
+const { Event, MeetGreet, SetTime, Stage, Band } = db 
 const { Op } = require('sequelize')
-const res = require('express/lib/response')
 
 // FIND ALL EVENTS
-event.get('/', async (req, res) => {
+events.get('/', async (req, res) => {
     try {
         const foundEvents = await Event.findAll({
             order: [ [ 'date', 'ASC' ] ],
@@ -21,10 +20,35 @@ event.get('/', async (req, res) => {
 })
 
 // FIND A SPECIFIC EVENT
-event.get('/:id', async (req,res) => {
+events.get('/:name', async (req, res) => {
     try {
         const foundEvent = await Event.findOne({
-            where: { event_id: req.params.id }
+            where: { name: req.params.name },
+            include: [
+                { 
+                    model: MeetGreet, 
+                    as: "meet_greets", 
+                    attributes: { exclude: [ "event_id", "band_id" ] },
+                    include: {
+                         model: Band, 
+                         as: "band", 
+                    } 
+                },
+                { 
+                    model: SetTime, 
+                    as: "set_times",
+                    attributes: { exclude: [ "event_id", "stage_id", "band_id" ] },
+                    include: [
+                        { model: Band, as: "band" },
+                        { model: Stage, as: "stage" }
+                    ]
+                },
+                { 
+                    model: Stage, 
+                    as: "stages",
+                    through: { attributes: [] }
+                }
+            ]
         })
         res.status(200).json(foundEvent)
     } catch (error) {
@@ -33,7 +57,7 @@ event.get('/:id', async (req,res) => {
 })
 
 // CREATE AN EVENT
-event.post('/', async (req, res) => {
+events.post('/', async (req, res) => {
     try {
         const newEvent = await Event.create(req.body)
         res.status(200).json({
@@ -46,7 +70,7 @@ event.post('/', async (req, res) => {
 })
 
 // UPDATE AN EVENT
-event.put('/:id', async (req, res) => {
+events.put('/:id', async (req, res) => {
     try {
         const updatedEvents = await Event.update(req.body, {
             where: {
@@ -54,15 +78,15 @@ event.put('/:id', async (req, res) => {
             }
         })
         res.status(200).json({
-            message: `Successfully updated ${updatedEvent} event(s)`
-        }) 
-        } catch (err) {
-            res.status(500).json(err)
+            message: `Successfully updated ${updatedEvents} event(s)`
+        })
+    } catch(err) {
+        res.status(500).json(err)
     }
 })
 
 // DELETE AN EVENT
-event.delete('/:id', async (req, res) => {
+events.delete('/:id', async (req, res) => {
     try {
         const deletedEvents = await Event.destroy({
             where: {
@@ -78,4 +102,4 @@ event.delete('/:id', async (req, res) => {
 })
 
 // EXPORT
-module.exports = event
+module.exports = events

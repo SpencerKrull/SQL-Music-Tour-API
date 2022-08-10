@@ -1,12 +1,18 @@
 // DEPENDENCIES
-const band = require('express').Router()
+const bands = require('express').Router()
 const db = require('../models')
-const { Band } = db
+const { Band, MeetGreet, SetTime, Event } = db 
+const { Op } = require('sequelize')
 
 // FIND ALL BANDS
-band.get('/', async (req, res) => {
+bands.get('/', async (req, res) => {
     try {
-        const foundBands = await Band.findAll()
+        const foundBands = await Band.findAll({
+            order: [ [ 'available_start_time', 'ASC' ] ],
+            where: {
+                name: { [Op.like]: `%${req.query.name ? req.query.name : ''}%` }
+            }
+        })
         res.status(200).json(foundBands)
     } catch (error) {
         res.status(500).json(error)
@@ -14,10 +20,36 @@ band.get('/', async (req, res) => {
 })
 
 // FIND A SPECIFIC BAND
-band.get('/:id', async (req, res) => {
+bands.get('/:name', async (req, res) => {
     try {
         const foundBand = await Band.findOne({
-            where: { band_id: req.params.id }
+            where: { name: req.params.name },
+            include: [
+                { 
+                    model: MeetGreet, 
+                    as: "meet_greets", 
+                    attributes: { exclude: ["band_id", "event_id"] },
+                    include: { 
+                        model: Event, 
+                        as: "event", 
+                        where: { name: { [Op.like]: `%${req.query.event ? req.query.event : ''}%` } } 
+                    }
+                },
+                { 
+                    model: SetTime, 
+                    as: "set_times",
+                    attributes: { exclude: ["band_id", "event_id"] },
+                    include: { 
+                        model: Event, 
+                        as: "event", 
+                        where: { name: { [Op.like]: `%${req.query.event ? req.query.event : ''}%` } } 
+                    }
+                }
+            ],
+            order: [
+                [{ model: MeetGreet, as: "meet_greets" }, { model: Event, as: "event" }, 'date', 'DESC'],
+                [{ model: SetTime, as: "set_times" }, { model: Event, as: "event" }, 'date', 'DESC']
+            ]
         })
         res.status(200).json(foundBand)
     } catch (error) {
@@ -26,7 +58,7 @@ band.get('/:id', async (req, res) => {
 })
 
 // CREATE A BAND
-band.post('/', async (req, res) => {
+bands.post('/', async (req, res) => {
     try {
         const newBand = await Band.create(req.body)
         res.status(200).json({
@@ -39,7 +71,7 @@ band.post('/', async (req, res) => {
 })
 
 // UPDATE A BAND
-band.put('/:id', async (req, res) => {
+bands.put('/:id', async (req, res) => {
     try {
         const updatedBands = await Band.update(req.body, {
             where: {
@@ -55,7 +87,7 @@ band.put('/:id', async (req, res) => {
 })
 
 // DELETE A BAND
-band.delete('/:id', async (req, res) => {
+bands.delete('/:id', async (req, res) => {
     try {
         const deletedBands = await Band.destroy({
             where: {
@@ -71,4 +103,4 @@ band.delete('/:id', async (req, res) => {
 })
 
 // EXPORT
-module.exports = band
+module.exports = bands
